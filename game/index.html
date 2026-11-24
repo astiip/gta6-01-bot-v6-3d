@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MERIDIAN BAY — Golden Hour</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #1a0b2e; font-family: 'Segoe UI', Arial, sans-serif; }
+  #game { position: fixed; inset: 0; }
+  #game canvas { display: block; }
+  .panel { position: absolute; background: rgba(8, 10, 26, 0.62); border: 1px solid rgba(255,255,255,0.16);
+           border-radius: 10px; color: #fff; backdrop-filter: blur(2px); }
+  /* top-left: title + wanted */
+  #title { top: 14px; left: 14px; padding: 10px 18px; }
+  #title h1 { font-size: 28px; letter-spacing: 3px; color: #ffc81e; }
+  #title p { font-size: 14px; letter-spacing: 2px; color: #cfd6ff; margin-top: 2px; }
+  #stars { margin-top: 4px; font-size: 20px; color: #ffcf3d; letter-spacing: 3px; }
+  /* top-center: mission banner */
+  #mission { top: 14px; left: 50%; transform: translateX(-50%); padding: 10px 32px; text-align: center; min-width: 480px; }
+  #mission h2 { font-size: 22px; letter-spacing: 2px; color: #fff; }
+  #mission p { font-size: 15px; color: #ffe9a8; margin-top: 3px; }
+  /* top-right: round minimap */
+  #mapwrap { top: 14px; right: 14px; width: 150px; height: 150px; border-radius: 50%; overflow: hidden;
+             border: 3px solid rgba(255,255,255,0.35); background: #0a1030; }
+  #minimap { width: 100%; height: 100%; display: block; }
+  /* left edge: trust meters */
+  #trust { left: 14px; top: 50%; transform: translateY(-50%); padding: 10px 8px; display: flex; gap: 14px; }
+  .meter { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .meter label { font-size: 13px; letter-spacing: 1px; writing-mode: vertical-rl; transform: rotate(180deg); color: #dfe6ff; }
+  .track { width: 10px; height: 110px; background: rgba(255,255,255,0.15); border-radius: 5px; overflow: hidden; display: flex; flex-direction: column-reverse; }
+  .fill { width: 100%; background: #35d0ff; }
+  .fill.crew { background: #ffb020; }
+  .meter b { font-size: 14px; color: #fff; }
+  /* right-middle: dialogue */
+  #dialog { right: 14px; top: 42%; width: 300px; padding: 14px 16px; }
+  #dialog .who { font-size: 15px; font-weight: bold; letter-spacing: 1px; }
+  #dialog .who.mara { color: #35d0ff; }
+  #dialog .who.wren { color: #ffb020; }
+  #dialog p { font-size: 17px; line-height: 1.45; margin-top: 5px; color: #f2f4ff; }
+  /* bottom-left: speed */
+  #speed { left: 14px; bottom: 14px; padding: 10px 20px; text-align: center; }
+  #speed b { font-size: 43px; color: #fff; }
+  #speed span { font-size: 15px; color: #cfd6ff; }
+  /* bottom-center: crew cards */
+  #crew { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; }
+  .card { padding: 10px 16px; text-align: center; }
+  .card b { font-size: 16px; display: block; }
+  .card span { font-size: 14px; color: #cfd6ff; }
+  .card .hp { height: 5px; background: rgba(255,255,255,0.18); border-radius: 3px; margin-top: 6px; overflow: hidden; }
+  .card .hp i { display: block; height: 100%; background: #37e08b; }
+  #crew .card { position: static; }
+  /* bottom-right: dispatch */
+  #dispatch { right: 14px; bottom: 14px; padding: 10px 14px; font-size: 15px; line-height: 1.5; }
+  #dispatch .air { color: #ffcf3d; font-weight: bold; }
+  /* radio chip above crew */
+  #radio { bottom: 96px; left: 50%; transform: translateX(-50%); padding: 6px 18px; font-size: 15px; letter-spacing: 1px; }
+  #radio b { color: #ffc81e; }
+  /* start overlay */
+  #start { position: absolute; inset: 0; background: rgba(10, 6, 28, 0.72); display: flex; flex-direction: column;
+           align-items: center; justify-content: center; color: #fff; z-index: 10; cursor: pointer; }
+  #start h1 { font-size: 68px; letter-spacing: 8px; color: #ffc81e; text-shadow: 0 4px 24px rgba(255,160,20,0.6); }
+  #start h2 { font-size: 20px; letter-spacing: 4px; color: #cfd6ff; margin-top: 8px; }
+  #start p { font-size: 18px; color: #ffe9a8; margin-top: 18px; max-width: 640px; text-align: center; line-height: 1.6; }
+  #start .go { margin-top: 26px; font-size: 23px; letter-spacing: 2px; border: 2px solid #ffc81e; border-radius: 999px; padding: 10px 30px; color: #ffc81e; }
+  #start .keys { margin-top: 16px; font-size: 15px; color: #9fb0e8; }
+  #err { position: absolute; left: 0; bottom: 0; color: #f66; font-size: 14px; z-index: 99; background: #000; padding: 2px 6px; display: none; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
+</head>
+<body>
+<div id="game"></div>
+
+<div class="panel" id="title"><h1>MERIDIAN BAY</h1><p>GOLDEN HOUR &middot; UNDERCOVER</p><div id="stars">&#9733;&#9733;&#9733;&#9733;&#9734;</div></div>
+<div class="panel" id="mission"><h2 id="mName">DOUBLE LIFE</h2><p id="mObj">Drive to the pier. Do not blow your cover.</p></div>
+<div id="mapwrap"><canvas id="minimap" width="150" height="150"></canvas></div>
+
+<div class="panel" id="trust">
+  <div class="meter"><label>MBPD TRUST</label><div class="track"><div class="fill" id="trustMbpd" style="height:62%"></div></div><b id="trustMbpdN">62</b></div>
+  <div class="meter"><label>CREW TRUST</label><div class="track"><div class="fill crew" id="trustCrew" style="height:74%"></div></div><b id="trustCrewN">74</b></div>
+</div>
+
+<div class="panel" id="dialog"><div class="who mara" id="dWho">MARA VOSS</div><p id="dText">MBPD thinks I'm their informant. The crew thinks I'm their driver. Both are wrong.</p></div>
+
+<div class="panel" id="speed"><b id="spd">0</b> <span>km/h</span></div>
+
+<div id="crew">
+  <div class="panel card"><b style="color:#35d0ff">MARA VOSS</b><span>Driver &middot; Double Agent</span><div class="hp"><i style="width:88%"></i></div></div>
+  <div class="panel card"><b style="color:#ffb020">WREN</b><span>Radio &middot; Jammer</span><div class="hp"><i style="width:71%"></i></div></div>
+  <div class="panel card"><b style="color:#ffc81e">NIGHTHAWK</b><span>Sport &middot; Yellow</span><div class="hp"><i style="width:96%"></i></div></div>
+</div>
+
+<div class="panel" id="dispatch"><span class="air">AIR ONE &mdash; 42m</span><br>Units: Calloway &middot; Okonkwo<br>Mercer &middot; Ibarra &middot; Vance</div>
+<div class="panel" id="radio"><b>CELESTE 98.1</b> &nbsp;&middot;&nbsp; NIGHTHAWK FM</div>
+
+<div id="start">
+  <h1>MERIDIAN BAY</h1>
+  <h2>GOLDEN HOUR &mdash; DOUBLE LIFE</h2>
+  <p>Mara Voss drives for the crew by night and feeds the MBPD by day. Tonight both sides want the same drop at Pier 9 &mdash; and only one of them can walk away with it.</p>
+  <div class="go">CLICK TO DRIVE</div>
+  <div class="keys">W A S D / arrows to drive &middot; E to interact &middot; 1-4 to switch mission &middot; R to restart</div>
+</div>
+<div id="err"></div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
